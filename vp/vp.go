@@ -19,6 +19,8 @@ type VkPoster struct {
 	ToId          string
 	RefreshTime   int
 	abortCh       chan struct{}
+	processChan   chan VpsProcessSuccess
+	errorsChan    chan VpsProcessErr
 	postersWaitGr *sync.WaitGroup
 	vps           []VkPostSingle
 }
@@ -38,8 +40,8 @@ func (vp *VkPoster) Start() {
 	c := config.GetConfig()
 	log.Info("Start processing")
 
-	processChan := make(chan VpsProcessSuccess, len(c.VkGroupTo))
-	errorsChan := make(chan VpsProcessErr, len(c.VkGroupTo))
+	vp.processChan = make(chan VpsProcessSuccess, len(c.VkGroupTo))
+	vp.errorsChan = make(chan VpsProcessErr, len(c.VkGroupTo))
 
 	vp.vps = make([]VkPostSingle, len(c.VkGroupTo))
 
@@ -49,8 +51,8 @@ func (vp *VkPoster) Start() {
 			From:        vpf,
 			To:          vp.ToId,
 			TimeRefresh: c.RefreshTimePerGroup,
-			processCh:   processChan,
-			errorCh:     errorsChan,
+			processCh:   vp.processChan,
+			errorCh:     vp.errorsChan,
 		}
 		vp.vps[i] = vps
 
@@ -61,12 +63,7 @@ func (vp *VkPoster) Start() {
 
 	}
 
-	go vp.processListen(processChan, errorsChan)
-
-	vp.postersWaitGr.Wait()
-	close(processChan)
-	close(errorsChan)
-	log.Infof("All jobs done")
+	go vp.processListen()
 }
 
 func (vp *VkPoster) Stop() {
@@ -78,17 +75,21 @@ func (vp *VkPoster) Stop() {
 
 	}
 	vp.postersWaitGr.Wait()
+	vp.postersWaitGr.Wait()
+	close(vp.processChan)
+	close(vp.errorsChan)
+	log.Infof("All jobs done")
 
 }
 
-func (vp *VkPoster) processListen(processChan chan VpsProcessSuccess, errorsChan chan VpsProcessErr) {
+func (vp *VkPoster) processListen() {
 	for {
 		select {
-		case process := <-processChan:
+		case process := <-vp.processChan:
 			{
 				process.Vps.logger.Infof("%s elapsed:%vs", process.Message, process.Elapsed)
 			}
-		case err := <-errorsChan:
+		case err := <-vp.errorsChan:
 			{
 				err.Vps.logger.Errorf("%s", err.err)
 			}

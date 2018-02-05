@@ -3,6 +3,7 @@ package vp
 import (
 	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -31,9 +32,13 @@ type VkPostSingle struct {
 	abortCh     chan VpsAbortCh
 	logger      *log.Entry
 	stop        bool
+	mu          *sync.Mutex
+	quit        chan struct{}
 }
 
 func (vps *VkPostSingle) Start() {
+	vps.mu = &sync.Mutex{}
+	vps.quit = make(chan struct{}, 0)
 	logger := vps.getLogCtx()
 	vps.logger = logger
 	vps.logger.Infof("Starting job for %s", vps.From)
@@ -42,27 +47,29 @@ func (vps *VkPostSingle) Start() {
 
 func (vps *VkPostSingle) startCycle() {
 	for {
-		if vps.stop {
-			vps.logger.Warn("stopped")
+		select {
+		case <-vps.quit:
+			vps.logger.Warn("quit")
 			return
-		}
-		start := time.Now()
-		err := vps.runJob()
-		elapsed := time.Since(start)
+		case <-time.After(time.Second * time.Duration(vps.TimeRefresh)):
+			start := time.Now()
+			err := vps.runJob()
+			elapsed := time.Since(start)
 
-		if err != nil {
-			vps.error(err)
-			vps.wait()
-			continue
+			if err != nil {
+				vps.error(err)
+				vps.wait()
+				continue
+			}
+			vps.done(elapsed)
+
 		}
-		vps.done(elapsed)
-		vps.wait()
 	}
 
 }
 
 func (vps *VkPostSingle) Stop() {
-	vps.stop = true
+	vps.quit <- struct{}{}
 }
 
 func (vps *VkPostSingle) runJob() (err error) {
