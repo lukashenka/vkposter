@@ -37,9 +37,7 @@ func (vps *VkPostSingle) Start() {
 	logger := vps.getLogCtx()
 	vps.logger = logger
 	vps.logger.Infof("Starting job for %s", vps.From)
-
 	vps.startCycle()
-
 }
 
 func (vps *VkPostSingle) startCycle() {

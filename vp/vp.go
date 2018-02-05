@@ -60,6 +60,7 @@ func (vp *VkPoster) Start() {
 		}(i)
 
 	}
+
 	go vp.processListen(processChan, errorsChan)
 
 	vp.postersWaitGr.Wait()
@@ -72,7 +73,6 @@ func (vp *VkPoster) Stop() {
 
 	for _, vps := range vp.vps {
 		go func(vps VkPostSingle) {
-			vps.logger.Warn("going to stop")
 			vps.Stop()
 		}(vps)
 
