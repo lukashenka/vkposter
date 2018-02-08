@@ -4,7 +4,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/lukashenka/vkposter/config"
+	"github.com/lukashenka/vkposter/global"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,7 +26,7 @@ type VkPoster struct {
 }
 
 func InitProcessing() *VkPoster {
-	c := config.GetConfig()
+	c := global.GetConfig()
 	vp := &VkPoster{
 		FromID:        c.VkGroupFrom,
 		ToId:          c.VkGroupTo,
@@ -37,7 +37,7 @@ func InitProcessing() *VkPoster {
 }
 
 func (vp *VkPoster) Start() {
-	c := config.GetConfig()
+	c := global.GetConfig()
 	log.Info("Start processing")
 
 	vp.processChan = make(chan VpsProcessSuccess, len(c.VkGroupTo))
